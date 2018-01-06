@@ -1,0 +1,12 @@
+create table owner (
+    steamID bigint,
+    discordID bigint,
+    PRIMARY KEY(steamID,discordID)
+);
+
+create table gamesowned (
+    gameID bigint,
+    steamID bigint,
+    PRIMARY KEY(steamID,gameID)
+);
+

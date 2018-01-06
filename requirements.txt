@@ -1,0 +1,5 @@
+steam
+psycopg2
+scanf
+discord
+aiohttp
