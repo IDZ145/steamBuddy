@@ -25,12 +25,13 @@ params = {
   'port': #dbport
 }
 
+CONCAT_NUM = 3
+MAXIMUM_GAME_LIST_SIZE = 15
 
 client = discord.Client()
 #initialising the all the connections needed
 api = steam.webapi.WebAPI(key=STEAM_WEB_API_KEY)
 conn = psycopg2.connect(**params)
-curr = conn.cursor()
 
 def insert_game(cursor, game, steamid):
     """This will add a game to a steam user in the database
@@ -103,6 +104,61 @@ async def fetch(session, url):
         async with session.get(url) as response:
             return await response.text()
 
+
+def iterable_to_sting(iterable):
+    """Converts an interable to string with the items seperated by a comma
+    
+    Arguments:
+        iterable {iterable} -- An iterable object
+    
+    Returns:
+        string -- An string with items from comma
+    """
+
+    flag = True
+    string = str()
+    for item in iterable:
+        if flag:
+            flag = False
+            string = str(item)
+        else:
+            string = string + ", " + str(item) 
+    return string
+
+async def createGameMessage(raw_game_json, games, gameid):
+    message = None
+    game = json.loads(str(raw_game_json))
+    if game[str(gameid)]["success"]:
+        if game[str(gameid)]["data"]["type"] == "game":
+            data = game[str(gameid)]["data"]
+            genres = iterable_to_sting([genre["description"] for genre in data["genres"]])
+            users = [ await client.get_user_info(user) for user in games[gameid]]
+            user_list = iterable_to_sting([ user.mention for user in users])
+            catagories = iterable_to_sting([catagory["description"] for catagory in data["categories"]])
+            platforms = iterable_to_sting([ platform for platform in data["platforms"] if data["platforms"][platform] ])
+            store_link = "http://store.steampowered.com/app/{0}/".format(gameid)
+            price = "Probably free"
+            if "price_overview" in data:
+                if data["price_overview"]["discount_percent"] == 0:
+                    price = "{0} ({1})".format(data["price_overview"]["final"] * 0.01, data["price_overview"]["currency"])
+                else:
+                    price = "~~{0}~~ {1} ({2})".format(data["price_overview"]["initial"] * 0.01, data["price_overview"]["final"] * 0.01, data["price_overview"]["currency"])
+            message =  \
+'''
+**Name**: {0}
+**Genres**: {1}
+**Catagories**: {2}
+**Platforms**: {3}
+**Users**: {4}
+**Recomendation**: {5}
+**Release date**: {6}
+**Price**: {7}
+**Required age**: {8}
+**Store link**: <{9}>
+'''.format(data["name"], genres, catagories, platforms,
+    user_list, data["recommendations"]["total"], data["release_date"]["date"], price, data["required_age"], store_link)
+    return message
+
 async def print_games(cursor, users, channel, threshold):
     """
         This will find all the games that the user share in common.
@@ -120,35 +176,30 @@ async def print_games(cursor, users, channel, threshold):
     key_list = sorted(games, key=lambda k: len(games[k]), reverse=True)
     i = 0
     j = 0
+    msg = str()
+    msg_que = list()
     while i < len(key_list) and  j < threshold:
         async with aiohttp.ClientSession() as session:
-            raw_json = await fetch(session, "http://store.steampowered.com/api/appdetails?appids={0}".format(int(key_list[i])))
-            game = json.loads(str(raw_json))
-            if game[str(key_list[i])]["success"]:
+            raw_json = await fetch(session, "http://store.steampowered.com/api/appdetails?appids={0}&cc=US".format(int(key_list[i])))
+            game_msg = await createGameMessage(raw_json, games, key_list[i])
+            if game_msg is not None:
+                msg = msg + game_msg
                 j = j + 1
-                if game[str(key_list[i])]["data"]["type"] == "game":
-                    data = game[str(key_list[i])]["data"]
-                    flag = True
-                    genres = str()
-                    for g in data["genres"]:
-                        if flag:
-                            genres = g["description"]
-                            flag = False
-                        else:
-                            genres = genres + "," + g["description"]
-                    user_list = str()
-                    for user in games[key_list[i]]:
-                        u = await client.get_user_info(user)
-                        user_list = user_list + " " + u.mention
-                    store_link = "http://store.steampowered.com/app/{0}/".format(key_list[i])
-                    tmp = await client.send_message(channel,
-'''
-**name**: {0}
-**genres**: {1}
-**users**: {2}
-**store link**: {3}
-'''.format(data["name"], genres, user_list, store_link))
+            if j % CONCAT_NUM == 0 and j != 0:
+                if msg != "":
+                    msg_que.append(msg)
+                msg = str()
         i = i + 1
+    if j % CONCAT_NUM != 0:
+        if msg != "":
+            msg_que.append(msg)
+    await client.send_message(channel, "These are the games you have in common:")
+    for msg in msg_que:
+        print("|"+msg+"|")
+        print(type(msg))
+        print("-------------------------------------------------------------------------")
+        await client.send_message(channel, msg)
+        await asyncio.sleep(1)
 
 @client.event
 async def on_ready():
@@ -187,6 +238,7 @@ Commands:
 """
         )
     elif message.content.startswith('!steamBuddy add'):
+        curr = conn.cursor()
         url = message.content[15:].rstrip().lstrip()
         if url.startswith('http://steamcommunity.com/id/'):
             result = add_user(curr, api, url, message.author.id)
@@ -200,20 +252,27 @@ Commands:
             conn.commit()
         else:
             tmp = await client.send_message(message.channel, 'In valid url should be http://steamcommunity.com/id/{stuff}')
+        curr.close()
     elif message.content.startswith('!steamBuddy find'):
+        curr = conn.cursor()
         args = scanf("!steamBuddy find %d", message.content)
         if args is None:
-            limit = 10
+            limit = 7
         else:
             limit = args[0]
+            if limit > MAXIMUM_GAME_LIST_SIZE:
+                limit = MAXIMUM_GAME_LIST_SIZE
         chn = message.channel
         user_list = list()
         for user in message.mentions:
             user_list.append(int(user.id))
         await print_games(curr, user_list, chn, limit)
+        curr.close()
     elif message.content.startswith('!steamBuddy update'):
+        curr = conn.cursor()
         added_games = update_games(curr,message.author.id)
         tmp = await client.send_message(message.channel, 'I found {0} non free games in your libraries'.format(added_games))
+        curr.close()
 
 #This needs to be at the end
 client.run(DISCORD_API_KEY)
