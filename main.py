@@ -133,7 +133,10 @@ async def createGameMessage(raw_game_json, games, gameid):
         if game[str(gameid)]["data"]["type"] == "game":
             data = game[str(gameid)]["data"]
             genres = iterable_to_sting([genre["description"] for genre in data["genres"]])
-            users = [ await client.get_user_info(user) for user in games[gameid]]
+            users = list()
+            for user in games[gameid]:
+                user_data = await client.get_user_info(user)
+                users.append(user_data)
             user_list = iterable_to_sting([ user.mention for user in users])
             catagories = iterable_to_sting([catagory["description"] for catagory in data["categories"]])
             platforms = iterable_to_sting([ platform for platform in data["platforms"] if data["platforms"][platform] ])
