@@ -27,6 +27,7 @@ params = {
 
 CONCAT_NUM = 3
 MAXIMUM_GAME_LIST_SIZE = 15
+DEFAULT_GAME_LIST = 3
 
 client = discord.Client()
 #initialising the all the connections needed
@@ -257,7 +258,7 @@ Commands:
         curr = conn.cursor()
         args = scanf("!steamBuddy find %d", message.content)
         if args is None:
-            limit = 7
+            limit = DEFAULT_GAME_LIST
         else:
             limit = args[0]
             if limit > MAXIMUM_GAME_LIST_SIZE:
