@@ -199,9 +199,6 @@ async def print_games(cursor, users, channel, threshold):
             msg_que.append(msg)
     await client.send_message(channel, "These are the games you have in common:")
     for msg in msg_que:
-        print("|"+msg+"|")
-        print(type(msg))
-        print("-------------------------------------------------------------------------")
         await client.send_message(channel, msg)
         await asyncio.sleep(1)
 
