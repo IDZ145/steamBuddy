@@ -244,7 +244,7 @@ Commands:
     elif message.content.startswith('!steamBuddy add'):
         curr = conn.cursor()
         url = message.content[15:].rstrip().lstrip()
-        if url.startswith('http://steamcommunity.com/id/'):
+        if url.startswith('http://steamcommunity.com'):
             result = add_user(curr, api, url, message.author.id)
             if  result < 0:
                 tmp = await client.send_message(message.channel, 'Could not add you')
