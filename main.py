@@ -241,7 +241,7 @@ Commands:
     elif message.content.startswith('!steamBuddy add'):
         curr = conn.cursor()
         url = message.content[15:].rstrip().lstrip()
-        if url.startswith('http://steamcommunity.com'):
+        if url.startswith('http://steamcommunity.com') or url.startswith('https://steamcommunity.com'):
             result = add_user(curr, api, url, message.author.id)
             if  result < 0:
                 tmp = await client.send_message(message.channel, 'Could not add you')
@@ -252,7 +252,7 @@ Commands:
                     tmp = await client.send_message(message.channel, 'I found 1 non free games in your library')
             conn.commit()
         else:
-            tmp = await client.send_message(message.channel, 'In valid url should be http://steamcommunity.com/id/{stuff}')
+            tmp = await client.send_message(message.channel, 'In valid url should be https://steamcommunity.com/id/{stuff}')
         curr.close()
     elif message.content.startswith('!steamBuddy find'):
         curr = conn.cursor()
