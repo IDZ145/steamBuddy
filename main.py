@@ -73,6 +73,7 @@ def add_user(cursor, steam_api, url, author):
         author {int} -- The author of the message which will be the discord user
     """
     steam_user_id = steam.steamid.steam64_from_url(url)
+    print("##########\nTrying to add user:{user}\n#######".format(user=steam_user_id))
     if steam_user_id is None:
         return -1
     try:
