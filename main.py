@@ -244,8 +244,10 @@ Commands:
         url = message.content[15:].rstrip().lstrip()
         if url.startswith('http://steamcommunity.com') or url.startswith('https://steamcommunity.com'):
             result = add_user(curr, api, url, message.author.id)
-            if  result < 0:
+            if  result == -1:
                 tmp = await client.send_message(message.channel, 'Could not add you')
+            else if result == 0:
+                tmp = await client.send_message(message.channel, "You don't have any games I can see")
             else:
                 if result != 1:
                     tmp = await client.send_message(message.channel, 'I found {0} non free games in your library'.format(result))
